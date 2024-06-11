@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 import tensorflow as tf
 import numpy as np
 from sklearn.datasets import load_iris
@@ -23,8 +23,16 @@ class IrisClassifierApp(tk.Tk):
         self.train_button.pack(pady=10)
 
         # テストボタン
-        self.test_button = tk.Button(self, text="Test Model", command=self.predict_text)
+        self.test_button = tk.Button(self, text="Test Model", command=self.predict_text, state=tk.DISABLED)
         self.test_button.pack(pady=10)
+
+        # モデル保存ボタン
+        self.save_button = tk.Button(self, text="Save Model", command=self.save_model, state=tk.DISABLED)
+        self.save_button.pack(pady=10)
+
+        # モデル読み込みボタン
+        self.load_button = tk.Button(self, text="Load Model", command=self.load_model)
+        self.load_button.pack(pady=10)
 
         # モデルの初期化
         self.model = None
@@ -53,15 +61,17 @@ class IrisClassifierApp(tk.Tk):
 
         self.result_label.config(text="Training Completed", fg="green")  # 学習完了を表示
         self.train_button.config(state=tk.NORMAL)  # 学習ボタンを再度有効化
+        self.test_button.config(state=tk.NORMAL)  # テストボタンを有効化
+        self.save_button.config(state=tk.NORMAL)  # 保存ボタンを有効化
 
     def predict_text(self):
         try:
             # Entryからテストデータを取得
             test_input_str = self.test_entry.get().strip()
-        
+
             # カンマで分割して4つの数値を取得
             values = test_input_str.split(',')
-        
+
             if len(values) != 4:
                 raise ValueError("Please enter four valid numeric values separated by commas.")
 
@@ -89,6 +99,33 @@ class IrisClassifierApp(tk.Tk):
             messagebox.showerror("Error", str(ve))
         except Exception as e:
             messagebox.showerror("Error", f"Error occurred during prediction: {str(e)}")
+
+    def save_model(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".h5",
+            filetypes=(("H5 files", "*.h5"), ("All files", "*.*")),
+            title="モデルファイルを保存"
+        )
+        if file_path:
+            try:
+                self.model.save(file_path)
+                messagebox.showinfo("Info", "モデルの保存が完了しました。")
+            except Exception as e:
+                messagebox.showerror("Error", f"モデルの保存中にエラーが発生しました: {e}")
+
+    def load_model(self):
+        file_path = filedialog.askopenfilename(
+            title="モデルファイルを選択",
+            filetypes=(("H5 files", "*.h5"), ("All files", "*.*"))
+        )
+        if file_path:
+            try:
+                self.model = tf.keras.models.load_model(file_path)
+                self.test_button.config(state=tk.NORMAL)
+                self.save_button.config(state=tk.NORMAL)
+                messagebox.showinfo("Info", "新しいモデルの読み込みが完了しました。")
+            except Exception as e:
+                messagebox.showerror("Error", f"モデルの読み込み中にエラーが発生しました: {e}")
 
 if __name__ == "__main__":
     app = IrisClassifierApp()

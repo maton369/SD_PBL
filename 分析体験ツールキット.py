@@ -10,12 +10,12 @@ class FrameApp:
         self.root.title("分析体験ツールキット")
 
         frames_data = [
-            {"row": 0, "column": 0, "image": "データ.jpg", "script": "1.py"},
+            {"row": 0, "column": 0, "image": "データ.jpg", "script": "Apps/data_visualization.py"},
             {"row": 0, "column": 1, "image": "gazo.jpg", "script": "2.py"},
             {"row": 0, "column": 2, "image": "無題 (6).png", "script": "3.py"},
             {"row": 1, "column": 0, "image": "ayame.jpg", "script": "4.py"},
             {"row": 1, "column": 1, "image": "画像認識プログラム.png", "script": "5.py"},
-            {"row": 1, "column": 2, "image": "Positive_or_Negative.png", "script": "6.py"},
+            {"row": 1, "column": 2, "image": "Positive_or_Negative.png", "script": "Apps/感情分析レビュアー.py"},
         ]
 
         for i in range(3):  

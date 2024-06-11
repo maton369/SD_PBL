@@ -2,17 +2,23 @@ import tensorflow as tf
 from tensorflow.keras.datasets import imdb
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import load_model
 import numpy as np
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
+import os
 
-def build_rnn_model(input_dim, output_dim, input_length, lstm_units, dense_units, activation):
+def build_rnn_model(input_dim, output_dim, input_length, lstm_units, dense_units, dropout_rate, activation):
     model = tf.keras.Sequential([
         tf.keras.layers.Embedding(input_dim=input_dim, output_dim=output_dim, input_length=input_length),
+        tf.keras.layers.LSTM(lstm_units, return_sequences=True),
+        tf.keras.layers.Dropout(dropout_rate),
         tf.keras.layers.LSTM(lstm_units),
-        tf.keras.layers.Dense(dense_units, activation=activation)
+        tf.keras.layers.Dropout(dropout_rate),
+        tf.keras.layers.Dense(dense_units, activation=activation),
+        tf.keras.layers.Dense(2, activation='softmax')
     ])
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     return model
 
 def preprocess_text(text, tokenizer, max_len):
@@ -55,22 +61,27 @@ class SentimentAnalysisApp(tk.Tk):
         tk.Label(self.settings_frame, text="エポック数:").grid(row=0, column=0)
         self.epochs_entry = tk.Entry(self.settings_frame, width=10)
         self.epochs_entry.grid(row=0, column=1)
-        self.epochs_entry.insert(tk.END, '1')
+        self.epochs_entry.insert(tk.END, '10') 
 
         tk.Label(self.settings_frame, text="LSTMユニット数:").grid(row=1, column=0)
         self.lstm_units_entry = tk.Entry(self.settings_frame, width=10)
         self.lstm_units_entry.grid(row=1, column=1)
-        self.lstm_units_entry.insert(tk.END, '32')
+        self.lstm_units_entry.insert(tk.END, '64') 
 
         tk.Label(self.settings_frame, text="Denseユニット数:").grid(row=2, column=0)
         self.dense_units_entry = tk.Entry(self.settings_frame, width=10)
         self.dense_units_entry.grid(row=2, column=1)
-        self.dense_units_entry.insert(tk.END, '1')
+        self.dense_units_entry.insert(tk.END, '64')  
 
-        tk.Label(self.settings_frame, text="活性化関数:").grid(row=3, column=0)
+        tk.Label(self.settings_frame, text="ドロップアウト率:").grid(row=3, column=0)
+        self.dropout_rate_entry = tk.Entry(self.settings_frame, width=10)
+        self.dropout_rate_entry.grid(row=3, column=1)
+        self.dropout_rate_entry.insert(tk.END, '0.2')  
+
+        tk.Label(self.settings_frame, text="活性化関数:").grid(row=4, column=0)
         self.activation_var = tk.StringVar(value='relu')
         self.activation_menu = tk.OptionMenu(self.settings_frame, self.activation_var, 'sigmoid', 'relu', 'tanh')
-        self.activation_menu.grid(row=3, column=1)
+        self.activation_menu.grid(row=4, column=1)
 
         self.text_entry = tk.Entry(self, width=50)
         self.text_entry.pack(pady=20)
@@ -80,6 +91,12 @@ class SentimentAnalysisApp(tk.Tk):
 
         self.analyze_button = tk.Button(self, text="判定", command=self.analyze_sentiment, state=tk.DISABLED)
         self.analyze_button.pack(pady=10)
+
+        self.save_button = tk.Button(self, text="モデル保存", command=self.save_model, state=tk.DISABLED)
+        self.save_button.pack(pady=10)
+
+        self.load_button = tk.Button(self, text="モデル読み込み", command=self.load_new_model)
+        self.load_button.pack(pady=10)
 
         self.result_label = tk.Label(self, text="", font=("Helvetica", 16))
         self.result_label.pack(pady=20)
@@ -111,6 +128,9 @@ class SentimentAnalysisApp(tk.Tk):
         self.model = None
         self.is_training = False
 
+        if os.path.exists('sentiment_rnn_model.h5'):
+            self.load_model()
+
     def decode_review(self, text, reversed_word_index):
         return ' '.join([reversed_word_index.get(i - 3, '?') for i in text])
 
@@ -127,10 +147,11 @@ class SentimentAnalysisApp(tk.Tk):
             input_length = 100
             lstm_units = int(self.lstm_units_entry.get())
             dense_units = int(self.dense_units_entry.get())
+            dropout_rate = float(self.dropout_rate_entry.get())
             activation = self.activation_var.get()
             epochs = int(self.epochs_entry.get())
 
-            self.model = build_rnn_model(input_dim, output_dim, input_length, lstm_units, dense_units, activation)
+            self.model = build_rnn_model(input_dim, output_dim, input_length, lstm_units, dense_units, dropout_rate, activation)
 
             train_sequences = self.tokenizer.texts_to_sequences(self.train_texts)
             train_padded_sequences = pad_sequences(train_sequences, maxlen=100, padding='post')
@@ -143,7 +164,9 @@ class SentimentAnalysisApp(tk.Tk):
                 callbacks=[TrainingCallback(self)]
             )
 
+            self.model.save('sentiment_rnn_model.h5')
             self.analyze_button.config(state=tk.NORMAL)
+            self.save_button.config(state=tk.NORMAL)
             self.training_label.config(text="学習完了", fg="green")
             self.is_training = False
 
@@ -163,9 +186,9 @@ class SentimentAnalysisApp(tk.Tk):
 
         processed_text = preprocess_text(text, self.tokenizer, max_len=100)
 
-        prediction = self.model.predict(processed_text)[0][0]
+        prediction = self.model.predict(processed_text)[0]
 
-        if prediction >= 0.5:
+        if prediction[1] >= 0.5:
             result = "ポジティブ"
         else:
             result = "ネガティブ"
@@ -176,6 +199,41 @@ class SentimentAnalysisApp(tk.Tk):
 
     def clear_result(self):
         self.result_label.config(text="")
+
+    def load_model(self):
+        try:
+            self.model = load_model('sentiment_rnn_model.h5')
+            self.analyze_button.config(state=tk.NORMAL)
+            self.save_button.config(state=tk.NORMAL)
+            self.training_label.config(text="モデル読み込み完了", fg="green")
+        except Exception as e:
+            messagebox.showerror("Error", f"モデルの読み込み中にエラーが発生しました: {e}")
+
+    def save_model(self):
+        file_path = filedialog.asksaveasfilename(
+            title="モデルファイルを保存",
+            defaultextension=".h5",
+            filetypes=(("H5 files", "*.h5"), ("All files", "*.*"))
+        )
+        if file_path:
+            try:
+                self.model.save(file_path)
+                messagebox.showinfo("Info", "モデルを保存しました。")
+            except Exception as e:
+                messagebox.showerror("Error", f"モデルの保存中にエラーが発生しました: {e}")
+
+    def load_new_model(self):
+        file_path = filedialog.askopenfilename(
+            title="モデルファイルを選択",
+            filetypes=(("H5 files", "*.h5"), ("All files", "*.*"))
+        )
+        if file_path:
+            try:
+                self.model = load_model(file_path)
+                self.analyze_button.config(state=tk.NORMAL)
+                self.training_label.config(text="新しいモデル読み込み完了", fg="green")
+            except Exception as e:
+                messagebox.showerror("Error", f"モデルの読み込み中にエラーが発生しました: {e}")
 
 if __name__ == "__main__":
     app = SentimentAnalysisApp()

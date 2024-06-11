@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from PIL import Image, ImageDraw
+from PIL import Image
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models, datasets
@@ -17,6 +17,14 @@ class MNISTClassifierApp(tk.Tk):
         # 判別ボタン
         self.classify_button = tk.Button(self, text="Classify", command=self.classify_digit, state=tk.DISABLED)
         self.classify_button.pack(pady=10)
+
+        # モデル読み込みボタン
+        self.load_button = tk.Button(self, text="モデル読み込み", command=self.load_new_model)
+        self.load_button.pack(pady=10)
+
+        # モデル保存ボタン
+        self.save_button = tk.Button(self, text="モデル保存", command=self.save_model, state=tk.DISABLED)
+        self.save_button.pack(pady=10)
 
         # 判別結果表示用のラベル
         self.result_label = tk.Label(self, text="", font=("Helvetica", 16))
@@ -81,6 +89,7 @@ class MNISTClassifierApp(tk.Tk):
             # 学習完了メッセージとボタンの有効化
             self.start_button.config(state=tk.NORMAL)  # 開始ボタンを有効化
             self.classify_button.config(state=tk.NORMAL)  # 判別ボタンを有効化
+            self.save_button.config(state=tk.NORMAL)  # モデル保存ボタンを有効化
             self.training_label.pack_forget()  # 学習中表示を非表示に
             messagebox.showinfo("Info", "学習が完了しました。")
 
@@ -103,6 +112,32 @@ class MNISTClassifierApp(tk.Tk):
 
             except Exception as e:
                 messagebox.showerror("Error", f"Error occurred: {str(e)}")
+
+    def load_new_model(self):
+        file_path = filedialog.askopenfilename(
+            title="モデルファイルを選択",
+            filetypes=(("H5 files", "*.h5"), ("All files", "*.*"))
+        )
+        if file_path:
+            try:
+                self.model = models.load_model(file_path)
+                self.classify_button.config(state=tk.NORMAL)
+                messagebox.showinfo("Info", "新しいモデルの読み込みが完了しました。")
+            except Exception as e:
+                messagebox.showerror("Error", f"モデルの読み込み中にエラーが発生しました: {e}")
+
+    def save_model(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".h5",
+            filetypes=(("H5 files", "*.h5"), ("All files", "*.*")),
+            title="モデルファイルを保存"
+        )
+        if file_path:
+            try:
+                self.model.save(file_path)
+                messagebox.showinfo("Info", "モデルの保存が完了しました。")
+            except Exception as e:
+                messagebox.showerror("Error", f"モデルの保存中にエラーが発生しました: {e}")
 
 if __name__ == "__main__":
     app = MNISTClassifierApp()
