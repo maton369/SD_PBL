@@ -7,7 +7,7 @@ class FrameApp:
     def __init__(self, root):
         self.root = root
         self.root.geometry('800x600')
-        self.root.title("分析体験ツールキット")
+        self.root.title("データサイエンス体験ツールキット")
 
         frames_data = [
             {"row": 0, "column": 0, "image": "データ.jpg", "script": "Apps/data_visualization.py"},
